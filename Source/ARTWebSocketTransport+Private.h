@@ -35,4 +35,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
+#pragma mark - ARTEvent
+
+@interface ARTEvent (TransportState)
+- (instancetype)initWithTransportState:(ARTRealtimeTransportState)value;
++ (instancetype)newWithTransportState:(ARTRealtimeTransportState)value;
+
+@end
+
 NS_ASSUME_NONNULL_END
