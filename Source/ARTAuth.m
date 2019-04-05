@@ -464,23 +464,26 @@ ART_TRY_OR_REPORT_CRASH_START(_rest) {
     [self.logger verbose:@"RS:%p ARTAuth [authorize.%@, delegate=%@]: requesting new token", _rest, authorizeId, lastDelegate ? @"YES" : @"NO"];
     [self _requestToken:currentTokenParams withOptions:replacedOptions callback:^(ARTTokenDetails *tokenDetails, NSError *error) {
         void (^successBlock)(void) = ^{
-            [self.logger verbose:@"RS:%p ARTAuth [authorize.%@]: token request succeeded: %@", self->_rest, authorizeId, tokenDetails];
+            [self.logger verbose:@"RS:%p ARTAuth [authorize.%@]: success callback: %@", self->_rest, authorizeId, tokenDetails];
             if (callback) {
                 callback(tokenDetails, nil);
             }
         };
 
         void (^failureBlock)(NSError *) = ^(NSError *error) {
-            [self.logger verbose:@"RS:%p ARTAuth [authorize.%@]: token request failed: %@", self->_rest, authorizeId, error];
+            [self.logger verbose:@"RS:%p ARTAuth [authorize.%@]: failure callback: %@ with token details %@", self->_rest, authorizeId, error, tokenDetails];
             if (callback) {
-                callback(nil, error);
+                callback(tokenDetails, error);
             }
         };
 
         if (error) {
+            [self.logger debug:@"RS:%p ARTAuth [authorize.%@]: token request failed: %@", self->_rest, authorizeId, error];
             failureBlock(error);
             return;
         }
+
+        [self.logger debug:@"RS:%p ARTAuth [authorize.%@]: token request succeeded: %@", self->_rest, authorizeId, tokenDetails];
 
         self->_tokenDetails = tokenDetails;
         self->_method = ARTAuthMethodToken;
@@ -493,15 +496,18 @@ ART_TRY_OR_REPORT_CRASH_START(_rest) {
                 switch (state) {
                     case ARTAuthorizationSucceeded:
                         successBlock();
+                        self->_tokenDetails = tokenDetails;
                         break;
                     case ARTAuthorizationFailed:
                         [self.logger debug:__FILE__ line:__LINE__ message:@"RS:%p authorization failed with \"%@\" but the request token has already completed", self->_rest, error];
                         failureBlock(error);
+                        self->_tokenDetails = nil;
                         break;
                     case ARTAuthorizationCancelled: {
                         NSError *cancelled = [ARTErrorInfo createWithCode:kCFURLErrorCancelled message:@"Authorization has been cancelled"];
                         [self.logger debug:__FILE__ line:__LINE__ message:@"RS:%p authorization cancelled but the request token has already completed", self->_rest];
                         failureBlock(cancelled);
+                        self->_tokenDetails = tokenDetails;
                         break;
                     }
                 }
