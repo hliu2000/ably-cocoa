@@ -32,6 +32,7 @@
     ARTTokenParams *_tokenParams;
     // Dedicated to Protocol Message
     NSString *_protocolClientId;
+    ARTEventEmitter<ARTEvent *, ARTErrorInfo *> *_cancelationEventEmitter;
 }
 
 - (instancetype)init:(ARTRest *)rest withOptions:(ARTClientOptions *)options {
@@ -44,6 +45,7 @@ ART_TRY_OR_REPORT_CRASH_START(rest) {
         _options = options;
         _logger = rest.logger;
         _protocolClientId = nil;
+        _cancelationEventEmitter = [[ARTInternalEventEmitter alloc] initWithQueue:_rest.queue];
         _tokenParams = options.defaultTokenParams ? : [[ARTTokenParams alloc] initWithOptions:self.options];
         [self validate:options];
 
@@ -526,8 +528,17 @@ ART_TRY_OR_REPORT_CRASH_START(_rest) {
         }
     }];
 
+    [_cancelationEventEmitter once:^(ARTErrorInfo * _Nullable error) {
+        [task cancel];
+    }];
+
     return task;
 } ART_TRY_OR_REPORT_CRASH_END
+}
+
+- (void)cancelAuthorization:(nullable ARTErrorInfo *)error {
+    [self.logger debug:__FILE__ line:__LINE__ message:@"RS:%p authorization cancelled with %@", self->_rest, error];
+    [_cancelationEventEmitter emit:nil with:error];
 }
 
 - (void)createTokenRequest:(void (^)(ARTTokenRequest *, NSError *))callback {
